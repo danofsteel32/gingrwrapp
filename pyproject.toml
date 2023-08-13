@@ -1,0 +1,71 @@
+[build-system]
+requires = [
+    "setuptools>=61.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "gingrwrapp"
+version = "0.0.1"
+description = "Unofficial client library for gingrapp.com"
+readme = "README.md"
+authors = [{name = "Dan Davis", email = "dan@dandavis.dev"}]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["gingr", "doggos", "client", "api"]
+dependencies = [
+    "beautifulsoup4",
+    "cachetools",
+    "loguru",
+    "lxml",
+    "requests",
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ipython",
+    "ruff",
+    "types-requests",
+]
+doc = [
+    "pdoc"
+]
+
+[project.urls]
+Homepage = "https://github.com/danofsteel32/gingrwrapp"
+
+# [tool.setuptools]
+# packages = ["gingrwrapp"]
+
+[tool.ruff]
+fix = true
+target-version = "py311"
+line-length = 88
+select = ["E", "F", "B", "I"]
+# Never enforce `E501` (line length violations).
+# ignore = ["E501"]
+# Avoid trying to fix flake8-bugbear (`B`) violations.
+unfixable = ["B"]
+
+
+[tool.pyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+]
+typeCheckingMode = ["on"]
+# defineConstant = { DEBUG = true }
+venvPath = "/home/dan/projects/gingrwrapp"
+venv = "venv"
+reportMissingImports = true
+reportMissingTypeStubs = true
+
+pythonVersion = "3.11"
+pythonPlatform = "Linux"
