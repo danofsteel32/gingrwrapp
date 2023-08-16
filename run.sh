@@ -101,7 +101,7 @@ test() {
 }
 
 docs() {
-  pdoc --docformat=google "${PROJECT}"
+    wrapped-python -m pdoc --docformat=google "${PROJECT}"
 }
 
 help() {
