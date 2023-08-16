@@ -5,8 +5,8 @@ from pathlib import Path
 
 import requests
 
-from .client import Client
-from .response_objects import (
+from gingrwrapp import Client
+from gingrwrapp.response_objects import (
     Animal,
     AnimalReportCards,
     CustomerSpend,
@@ -44,14 +44,17 @@ class ClientTestCase(unittest.TestCase):
         self.assertIsInstance(icons, Icons)
 
     def test_get_animal(self):
+        # 464 hardcoded
         animal = client.get_animal(464)
         self.assertIsInstance(animal, Animal)
 
     def test_get_animal_report_cards(self):
+        # 464 hardcoded
         report_cards = client.get_animal_report_cards(464)
         self.assertIsInstance(report_cards, AnimalReportCards)
 
     def test_get_report_card_images(self):
+        # 120586 hardcoded
         images = client.get_report_card_images(120586)
         resp = requests.get(images[random.randint(0, len(images) - 1)])
         self.assertEqual(resp.headers["Content-Type"], "image/jpeg")
@@ -71,13 +74,14 @@ class ClientTestCase(unittest.TestCase):
         untagged = client.get_untagged_images()
         for u in untagged:
             self.assertIsInstance(u, UntaggedImage)
-        # What if there are no untagged images? Have to assume fail for now
-        self.fail()
 
-    def test_clear_bulk_photos(self):
-        client.clear_bulk_photos()
+    # This is too dangerous to test all the time
+    # You will wipe all images and staff would have to reupload them
+    # Only uncomment and test when you know what you're doing
+    # def test_clear_bulk_upload(self):
+    #     client.clear_bulk_upload()
 
     def test_upload_image(self):
-        self.fail()
+        self.fail("Not working correctly yet.")
         image = Path("test_data/1024px-Wiki_Test_Image.jpg")
         self.client.upload_image(image)

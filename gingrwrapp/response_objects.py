@@ -1,6 +1,5 @@
 """Return useful, documented objects rather than a dict in client responses."""
 
-
 import io
 import json
 import re
@@ -10,39 +9,6 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable
-
-
-@dataclass
-class SessionCounts:
-    daily_notices: int
-    expected_today: int
-    checked_in: int
-    unconfirmed: int
-    requested: int
-    going_home_today: int
-
-    @classmethod
-    def from_json(cls, resp: dict):
-        data = resp["data"]
-        return cls(
-            int(data["daily_notices"]),
-            int(data["expected_today"]),
-            int(data["checked_in"]),
-            int(data["unconfirmed"]),
-            int(data["requested"]),
-            int(data["going_home_today"]),
-        )
-
-
-@dataclass
-class ReservationType:
-    id: int
-    type: str
-    description: str
-
-    @classmethod
-    def from_json(cls, resp: dict):
-        return cls(int(resp["id"]), resp["type"], resp["description"])
 
 
 def dt_helper(x: str) -> datetime | None:
@@ -99,6 +65,39 @@ def int_or_none(x: Any) -> int | None:
         return int(x)
     except Exception:
         return None
+
+
+@dataclass
+class SessionCounts:
+    daily_notices: int
+    expected_today: int
+    checked_in: int
+    unconfirmed: int
+    requested: int
+    going_home_today: int
+
+    @classmethod
+    def from_json(cls, resp: dict):
+        data = resp["data"]
+        return cls(
+            int(data["daily_notices"]),
+            int(data["expected_today"]),
+            int(data["checked_in"]),
+            int(data["unconfirmed"]),
+            int(data["requested"]),
+            int(data["going_home_today"]),
+        )
+
+
+@dataclass
+class ReservationType:
+    id: int
+    type: str
+    description: str
+
+    @classmethod
+    def from_json(cls, resp: dict):
+        return cls(int(resp["id"]), resp["type"], resp["description"])
 
 
 @dataclass

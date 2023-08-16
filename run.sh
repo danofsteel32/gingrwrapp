@@ -6,9 +6,6 @@ set -o pipefail
 
 VENVPATH="${VENVPATH:-./venv}"
 PROJECT="${PROJECT:-gingrwrapp}"
-POSTGRES_USER="${POSTGRES_USER:-K9}"
-POSTGRES_PASSWORD="i1SxA5hvCxakezpJnQSEe8UVWGZipaCwe+C2Jn+GJSU="
-POSTGRES_DB="${POSTGRES_DB:-gingrwrapp_db}"
 
 # Dependency Management
 
@@ -67,69 +64,6 @@ install() {
     fi
 }
 
-postgres() {
-    podman pull docker.io/postgres:15
-    mkdir -p "${HOME}/.var/postgres/data"
-    podman run --detach --name postgresql-server \
-        --userns=keep-id \
-        -p 5432:5432 \
-        -e POSTGRES_DB="${PROJECT}" \
-        -e POSTGRES_USER="${POSTGRES_USER}" \
-        -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
-        -e POSTGRES_HOST_AUTH_METHOD="trust" \
-        -v "${HOME}/.var/postgres/data:/var/lib/postgresql/data:Z" \
-        docker.io/postgres:latest
-}
-
-clean-postgres() {
-    echo "Warning! This will delete all data in the postgres database."
-    echo "Continue? [y/n]"
-    read -r continue
-    if [[ "$continue" == "y" ]]; then
-        podman stop postgresql-server
-        podman rm postgresql-server
-        rm -rf ~/.var/postgres
-    fi
-}
-
-reset-db() {
-    clean-postgres
-    sleep 4
-    postgres
-    sleep 6
-    clean-migrations
-    init-migrations
-}
-
-copy-datamigrations() {
-    cp -v data_migrations/accounts/000* accounts/migrations/
-    # cp -v data_migrations/projects/000* projects/migrations/
-}
-
-clean-migrations() {
-    rm -f */migrations/0*.py
-}
-
-init-migrations() {
-    wrapped-python manage.py makemigrations &&
-    wrapped-python manage.py migrate &&
-    copy-datamigrations &&
-    wrapped-python manage.py migrate
-}
-
-psql() {
-    /usr/bin/psql -U bobdabuilda -h localhost -d buildsure
-}
-
-# Drop all tables
-drop-tables() {
-    /usr/bin/psql -U bobdabuilda -h localhost -d buildsure -c "\dt" \
-        | grep table | awk '{print "DROP TABLE IF EXISTS "$3 " CASCADE;"}' \
-        | /usr/bin/psql -U bobdabuilda -h localhost -d buildsure
-}
-
-# Utils
-
 build() {
     python -m build
 }
@@ -158,17 +92,12 @@ lint() {
 }
 
 tests() {
-    wrapped-python -X dev -m unittest gingrwrapp/client/tests.py
+    wrapped-python -X dev -m unittest tests/test_client.py
 }
 
 test() {
     wrapped-python -X dev \
-        -m unittest "gingrwrapp.client.tests.ClientTestCase.test_${1}"
-}
-
-prodserver() {
-    # run uwsgi and caddy in parallel
-    (trap 'kill 0' SIGINT; caddy run --config Caddyfile & "${VENVPATH}"/bin/uwsgi --ini uwsgi.ini)
+        -m unittest "tests.test_client.ClientTestCase.test_${1}"
 }
 
 docs() {
@@ -177,9 +106,8 @@ docs() {
 
 help() {
     echo
-    echo "./run.sh                          # alias bin/gingrwrapp"
     echo "./run.sh build                    # whl and sdist"
-    echo "./run.sh docs                     # local pdoc"
+    echo "./run.sh docs                     # local pdoc server"
     echo "./run.sh install                  # configure venv and install deps"
     echo "./run.sh install dev,doc          # optional dependencies"
     echo "./run.sh tests                    # run full set of client tests"
@@ -191,7 +119,7 @@ help() {
 }
 
 default() {
-    DEBUG=1 wrapped-python -X dev "${PROJECT}"
+    help
 }
 
 TIMEFORMAT="Task completed in %3lR"

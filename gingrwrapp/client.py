@@ -5,10 +5,9 @@ import os
 import pickle
 import re
 import tempfile
-import time
 import zipfile
 from datetime import date as Date
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -32,9 +31,8 @@ from .response_objects import (
 ResponseType = requests.Response | dict | str | Iterable[dict]
 """raw response || json || html || csv rows"""
 
+# Call this in your script to disable logging
 # logger.disable("gingrwrapp")
-# if int(os.getenv("DEBUG", "0")):
-#     logger.enable("gingrwrapp")
 
 
 # TODO change this up sometimes?
@@ -42,28 +40,18 @@ USER_AGENT = os.getenv(
     "USER_AGENT",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15",  # noqa: E501
 )
+"""Not sure if matters but use it anyways."""
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+"""Raise GingrClientError after too many bad/timed out requests. Default is 3."""
 
 
 class GingrClientError(Exception):
     """Catch this exception to catch all exceptions"""
-
-    pass
-
-
-class GingrLoginError(GingrClientError):
-    """Bad login creds"""
-
-    pass
-
-
-class GingrTimeoutError(GingrClientError):
-    """Request timed out. You should take a break."""
-
     pass
 
 
 class EnhancedSession(requests.Session):
+    """Add timeout to every request made with the session."""
     def __init__(self, timeout=(3.05, 27)):
         self.timeout = timeout
         return super().__init__()
@@ -192,11 +180,11 @@ class Client:
         if self._session_expired(response):
             self._log_bad_request(response)
             raise GingrClientError("Unable to login")
+        logger.info("Successfully logged in")
 
         self.apikey = self._extract_window_apikey(response.text)
         self.save_cookies(session.cookies, self.cookie_file)
 
-        logger.info("Successfully logged in")
         return session
 
     def _session_expired(self, response: requests.Response) -> bool:
@@ -231,6 +219,7 @@ class Client:
         return csv.DictReader(io.StringIO(csv_part))
 
     def post(self, url: str, data: dict) -> ResponseType:
+        """Wraps POST request and return result based on Content-Type header."""
         attempts = 0
         while attempts < MAX_RETRIES:
             try:
@@ -248,6 +237,7 @@ class Client:
         raise GingrClientError("Too many bad requests")
 
     def get(self, url: str, params: dict | None = None) -> ResponseType:
+        """Wraps GET request and return result based on Content-Type header."""
         attempts = 0
         while attempts < MAX_RETRIES:
             try:
@@ -266,6 +256,7 @@ class Client:
         raise GingrClientError("Too many bad requests")
 
     def get_section_counts(self) -> SessionCounts:
+        """Return summary of animals checked_in, going_home, etc."""
         url = f"{self.dash_url}/section_counts"
         resp = self.get(url)
         if isinstance(resp, dict):
@@ -295,7 +286,10 @@ class Client:
     def get_reservations(
         self, date: Date | None = None, days_ahead: int = 1
     ) -> Iterable[Reservation]:
-        """Get all reservations from the date plus days_ahead."""
+        """Return all reservations from the date plus days_ahead.
+
+        date defaults to today if not provided
+        """
         date_from = date if date else Date.today()
         date_to = date_from + timedelta(days=days_ahead)
         data = {
@@ -315,13 +309,17 @@ class Client:
             raise GingrClientError("get_reservations()") from exc
 
     def get_icons(self, animal_ids: list[int], owner_ids: list[int] | None = None):
-        """lol that `get_icons` is a POST."""
+        """Return all icons for the animals and owners.
+
+        owner_ids is optional
+        """
         url = f"{self.dash_url}/get_icons"
         data = {
             "animal_ids": str(animal_ids),
             "owner_ids": str(owner_ids) if owner_ids else "[]",
             "key": self.apikey,
         }
+        # lol that `get_icons` is a POST.
         resp = self.post(url, data)
         try:
             return Icons.from_json(resp)  # type: ignore
@@ -331,6 +329,7 @@ class Client:
             raise GingrClientError("get_icons()") from exc
 
     def get_animal(self, animal_id: int) -> Animal:
+        """Return animal info from it's profile page."""
         url = f"{self.base_url}/animals/view/id/{animal_id}"
         resp = self.get(url)
         try:
@@ -341,6 +340,7 @@ class Client:
             raise GingrClientError("get_animal()") from exc
 
     def get_animal_report_cards(self, animal_id: int) -> AnimalReportCards:
+        """Return the ids of all report cards for the animal."""
         url = f"{self.base_url}/api/v1/reservation_stats"
         params = {"type": "animal", "id": animal_id, "key": self.apikey}
         resp = self.get(url, params)
@@ -352,7 +352,7 @@ class Client:
             raise GingrClientError("get_animal()") from exc
 
     def get_report_card_images(self, report_card_id: int) -> list[str]:
-        """Returns image urls associated with the report card."""
+        """Return image urls associated with the report card."""
         url = f"{self.base_url}/front_end_v1/get_report_card_details_v1"
         data = {"report_card_id": report_card_id}
         resp = self.post(url, data)
@@ -366,6 +366,7 @@ class Client:
     def get_customer_spend_by_date_range(
         self, date_from: Date, date_to: Date
     ) -> Iterable[CustomerSpend]:
+        """Return customer and amount they have spent over the date range."""
         url = f"{self.base_url}/reports/customer_spend"
         data = {
             "date_from": date_from.strftime("%m/%d/%Y"),
@@ -380,9 +381,7 @@ class Client:
             raise GingrClientError("get_customer_spend_by_date_range()") from exc
 
     def get_unsent_report_cards(self) -> list[UnsentReportCard]:
-        """
-        Returns (a_id, report_card_url, num_photos)
-        """
+        """Return unsent report cards and number of photos in each one."""
         url = f"{self.base_url}/report_cards"
         resp = self.get(url)
 
@@ -401,6 +400,7 @@ class Client:
         return ret
 
     def get_untagged_images(self) -> list[UntaggedImage]:
+        """Return all images currently in bulk_upload."""
         ret = []
 
         url = f"{self.base_url}/report_cards/bulk_upload"
@@ -443,17 +443,22 @@ class Client:
         #         print(resp.headers)
         #         print(resp.content)
 
-    def clear_bulk_photos(self):
+    def clear_bulk_upload(self):
         """Delete all images in the bulk_upload section."""
         for image in self.get_untagged_images():
             self.delete_file(image.file_id)
 
-    def tag_images(self, tags):
-        """Assign tags to untagged images."""
+    def tag_images(self, tags: list):
+        """Assign tags to images in bulk_upload."""
         raise NotImplementedError
         # url = f"{self.base_url}/report_cards/bulk_update"
+        # This is not hard to implement just haven't done it yet
 
-    def delete_file(self, file_id: int):
+    def delete_image(self, file_id: int):
+        """Delete an image from the report cards.
+
+        I assume this removes the image from all report cards referencing it.
+        """
         url = f"{self.base_url}/report_cards/delete_file/id/{file_id}"
         response = self.get(url)
         if response:
@@ -474,29 +479,10 @@ class Client:
                     return line.split(" = ")[-1].replace("'", "").strip().strip(";")
         raise GingrClientError("Could not get apikey")
 
-    # TODO refactor into html parsing module
-    @staticmethod
-    def get_image_urls(html: str) -> list[str]:
-        img_tags = bs(html, "lxml").findAll("img")
-        return [
-            tag["src"].replace("https ", "https:")  # Weird bug idk
-            for tag in img_tags
-            if tag["src"].endswith(".jpeg") or tag["src"].endswith(".jpg")
-        ]
 
     @staticmethod
-    def midnight_unixtime(date: Date | None = None) -> int:
-        """Returns epoch time at midnight for date or today if date is None"""
-        if date is None:
-            today = Date.today()
-            todays_midnight = datetime(today.year, today.month, today.day, 0, 0, 0)
-            return int(time.mktime(todays_midnight.timetuple()) + 86400)
-        date_midnight = datetime(date.year, date.month, date.day, 0, 0, 0)
-        return int(date_midnight.timestamp())
-
-    @staticmethod
-    def unzip_csv(content: bytes) -> Iterable[str]:
-        """Need to unzip into file-like object so can be read with csv.DictReader"""
+    def unzip(content: bytes) -> Iterable[str]:
+        """Return first file in the zip archive."""
         with io.BytesIO(content) as stream:
             with zipfile.ZipFile(stream) as zipped:
                 zip_contents = zipped.namelist()
@@ -504,16 +490,19 @@ class Client:
                     with zipped.open(zip_contents[0]) as target_file:
                         return io.StringIO(target_file.read().decode("utf-8"))
                 else:
+                    # I've never seen gingr send more than one file in the zip.
                     raise GingrClientError("Not sure which file to read in zip.")
 
     @staticmethod
     def save_cookies(cookies: Any, filename: Path) -> None:
+        """Pickle the cookies in /tmp."""
         with open(filename, "wb") as f:
             pickle.dump(cookies, f)
             logger.info("Saved cookiefile")
 
     @staticmethod
     def load_cookies(filename: Path) -> Any:
+        """UnPickle the cookies in /tmp."""
         with open(filename, "rb") as f:
             cookies = pickle.load(f)
         return cookies

@@ -1,14 +1,12 @@
 # gingrwrapp
 
-A python client library and API for [gingr](gingrapp.com).
+A python client library for [gingr](gingrapp.com) that automatically handles auth,
+session cookies, ratelimiting, timeouts when making requests to gingr.
 
-## Design
-
-### Client
-Automatically handles auth, session cookies, ratelimiting, timeouts for making requests to gingr.
+### Usage
 
 ```python
-from gingrwrapp import Client
+from gingrwrapp import Client, GingrClientError
 
 # 2 ways to create a client
 client = Client(subdomain, username, password)
@@ -16,43 +14,11 @@ client = Client(subdomain, username, password)
 client = Client.from_env()
 
 # example usage
-images = client.get_untagged_images()
+try:
+    images = client.get_untagged_images()
+except GingrClientError:
+    # handle the error ...
 ```
-
-### Sync
-Uses the client library store historical and live data from gingr in a local database.
-Think of it like a cache/proxy layer for gingr. This way any number of scripts or applications
-can make use of gingr data without having to get it directly from gingr. `sync_local` is meant
-to be run as a long runnig daemon.
-
-```python
-from datetime import date
-from gingrwrapp import sync_local
-
-# crawl gingr for all images, report cards, reservations since after date
-# Also continuously poll gingr for new icons, untagged images, reservations
-sync_local(after=date(2022, 1, 1))
-```
-
-### API
-Django Rest Framework app that serves the local data from gingr. I want a REST API instead of
-a python library so code using the data can be written in any language.
-
-```python
-from datetime import date
-import requests
-
-params = {
-    "from_date": date(2023, 1, 1),
-    "to_date": date(2023, 1, 4),
-}
-
-session = requests.Session()
-session.headers.update("X-Api-Key", "<your api key>")
-
-session.get("https://gingrwrapp.<your-domain>.com/api/reservations", params)
-```
-
 
 ## Dev
 
@@ -71,7 +37,5 @@ All dev tasks can be accomplished with the `run.sh` script.
 ```
 
 ## TODO
-- `Client.upload_image`
-- `Client.tag_images`
-- `sync_local`
-- rest api
+- Figure out google url signing for `Client.upload_image`
+- Figure out what format postdata needs to be in for `Client.tag_images`
