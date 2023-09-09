@@ -75,6 +75,14 @@ class ClientTestCase(unittest.TestCase):
         for u in untagged:
             self.assertIsInstance(u, UntaggedImage)
 
+    def test_get_animal_report_card_urls(self):
+        urls = client.get_animal_report_card_urls(464)
+        self.assertIn("/front_end/view_report_card/id/", urls[0])
+
+    def test_get_animal_report_card_ids(self):
+        ids = client.get_animal_report_card_ids(464)
+        self.assertEqual(ids[-1], 2818)
+
     # This is too dangerous to test all the time
     # You will wipe all images and staff would have to reupload them
     # Only uncomment and test when you know what you're doing

@@ -410,6 +410,26 @@ class Client:
             ret.append(UnsentReportCard(a_id, report_card_id, num_files))
         return ret
 
+    def get_animal_report_card_urls(self, animal_id: int) -> Iterable[str]:
+        """Returns all report card urls for the animal."""
+        url = f"{self.base_url}/animals/view/id/{animal_id}"
+        resp = self.get(url)
+        report_cards_div = bs(resp, "lxml").find("div", {"id": "report_cards"})
+        tbody = report_cards_div.find("tbody")
+        urls = []
+        for row in tbody.find_all("tr"):
+            cols = row.find_all("td")
+            url = cols[0].find("a")["href"]
+            urls.append(url)
+        return urls
+
+    def get_animal_report_card_ids(self, animal_id: int) -> Iterable[int]:
+        """Returns all report card ids for the animal."""
+        return [
+            int(url.split("?")[0].split("/")[-1])
+            for url in self.get_animal_report_card_urls(animal_id)
+        ]
+
     def get_untagged_images(self) -> Iterable[UntaggedImage]:
         """Return all images currently in bulk_upload."""
         ret: list[UntaggedImage] = []
