@@ -8,7 +8,7 @@ import requests
 from gingrwrapp import Client
 from gingrwrapp.response_objects import (
     Animal,
-    AnimalReportCards,
+    AnimalReservationIds,
     CustomerSpend,
     Icons,
     Reservation,
@@ -48,10 +48,10 @@ class ClientTestCase(unittest.TestCase):
         animal = client.get_animal(464)
         self.assertIsInstance(animal, Animal)
 
-    def test_get_animal_report_cards(self):
+    def test_get_animal_reservation_ids(self):
         # 464 hardcoded
-        report_cards = client.get_animal_report_cards(464)
-        self.assertIsInstance(report_cards, AnimalReportCards)
+        report_cards = client.get_animal_reservation_ids(464)
+        self.assertIsInstance(report_cards, AnimalReservationIds)
 
     def test_get_report_card_images(self):
         # 120586 hardcoded

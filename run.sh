@@ -82,6 +82,7 @@ clean() {
     find . -name '*.pyo' -exec rm -f {} +
     find . -name '*~' -exec rm -f {} +
     find . -name '__pycache__' -exec rm -fr {} +
+    find . -name '.ruff_cache' -exec rm -fr {} +
     find . -name '.mypy_cache' -exec rm -fr {} +
     find . -name '.pytest_cache' -exec rm -fr {} +
     find . -name '*.egg-info' -exec rm -fr {} +
@@ -89,6 +90,7 @@ clean() {
 
 lint() {
     wrapped-python -m ruff check .
+    wrapped-python -m mypy gingrwrapp
 }
 
 tests() {

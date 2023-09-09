@@ -14,7 +14,7 @@ from typing import Any, Callable
 def dt_helper(x: str) -> datetime | None:
     """Convert a string in isoformat or epoch timestamp into a datetime."""
 
-    def timestamp(_x: str):
+    def timestamp(_x: str) -> datetime:
         return datetime.fromtimestamp(int(_x))
 
     funcs: list[Callable] = [
@@ -77,7 +77,7 @@ class SessionCounts:
     going_home_today: int
 
     @classmethod
-    def from_json(cls, resp: dict):
+    def from_json(cls, resp: dict) -> "SessionCounts":
         data = resp["data"]
         return cls(
             int(data["daily_notices"]),
@@ -96,7 +96,7 @@ class ReservationType:
     description: str
 
     @classmethod
-    def from_json(cls, resp: dict):
+    def from_json(cls, resp: dict) -> "ReservationType":
         return cls(int(resp["id"]), resp["type"], resp["description"])
 
 
@@ -114,7 +114,7 @@ class CustomerSpend:
     total: Decimal
 
     @classmethod
-    def from_csv(cls, row: dict):
+    def from_csv(cls, row: dict) -> "CustomerSpend":
         return cls(
             int(row["id"]),
             row["first_name"],
@@ -258,7 +258,7 @@ class GenderType(Enum):
 
 
 @dataclass
-class AnimalReportCards:
+class AnimalReservationIds:
     a_id: int
     future: list[int]
     complete: list[int]
@@ -266,7 +266,7 @@ class AnimalReportCards:
     wait_list: list[int]
 
     @classmethod
-    def from_json(cls, animal_id: int, resp: dict):
+    def from_json(cls, animal_id: int, resp: dict) -> "AnimalReservationIds":
         return cls(
             a_id=animal_id,
             future=[int(i) for i in resp["data"]["future"]["ids"]],
@@ -291,7 +291,7 @@ class Animal:
     home_location: int
 
     @classmethod
-    def from_html(cls, html: str):
+    def from_html(cls, html: str) -> "Animal":
         info = cls._extract_animal_info(html)
         gender = (
             GenderType.MALE if info["gender"].upper() == "MALE" else GenderType.FEMALE
@@ -335,7 +335,7 @@ class AnimalIcon:
     fontawesome_class: str
 
     @classmethod
-    def from_json(cls, resp: dict):
+    def from_json(cls, resp: dict) -> "AnimalIcon":
         return cls(
             icon_template_id=int_or_none(resp.get("color_label_template_id")),
             icon_template_group_id=int_or_none(
@@ -371,9 +371,9 @@ class AnimalIconTemplate:
     location_ids: list[int] | None
 
     @classmethod
-    def from_json(cls, resp: dict):
+    def from_json(cls, resp: dict) -> "AnimalIconTemplate":
         if resp.get("location_ids"):
-            location_ids = [int(x) for x in resp.get("location_ids").split(",")]
+            location_ids = [int(x) for x in resp.get("location_ids", "").split(",")]
         else:
             location_ids = None
         return cls(
@@ -404,7 +404,7 @@ class Icons:
     animal_icons: dict[int, list[AnimalIcon]]  # a_id: icons
 
     @classmethod
-    def from_json(cls, resp: dict):
+    def from_json(cls, resp: dict) -> "Icons":
         animal_icons = {}
         animals = resp["data"]["animals"]
         for a_id in animals:

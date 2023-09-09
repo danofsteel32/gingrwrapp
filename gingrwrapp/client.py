@@ -18,7 +18,7 @@ from loguru import logger
 
 from .response_objects import (
     Animal,
-    AnimalReportCards,
+    AnimalReservationIds,
     CustomerSpend,
     Icons,
     Reservation,
@@ -47,16 +47,20 @@ MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 
 class GingrClientError(Exception):
     """Catch this exception to catch all exceptions"""
+
     pass
 
 
 class EnhancedSession(requests.Session):
     """Add timeout to every request made with the session."""
-    def __init__(self, timeout=(3.05, 27)):
+
+    def __init__(
+        self, timeout: tuple[float, float] | float | int = (3.05, 27.0)
+    ) -> None:
         self.timeout = timeout
         return super().__init__()
 
-    def request(self, method, url, **kwargs):
+    def request(self, method: str | bytes, url: str, **kwargs: Any):  # type: ignore
         if "timeout" not in kwargs:
             kwargs["timeout"] = self.timeout
         return super().request(method, url, **kwargs)
@@ -101,7 +105,9 @@ class Client:
         self.apikey: str | None = None
         """Set on first authenticated request."""
         self._session = self._establish_session()
-        self.reservation_types = TTLCache(maxsize=100, ttl=3600)
+        self.reservation_types: Iterable[ReservationType] = TTLCache(
+            maxsize=100, ttl=3600
+        )
         """Will only be updated from gingr if > 3600 seconds since last update."""
 
     @classmethod
@@ -115,11 +121,11 @@ class Client:
             raise GingrClientError("Login details not provided")
 
     @property
-    def auth_url(self):
+    def auth_url(self) -> str:
         return f"{self.base_url}/auth/login"
 
     @property
-    def dash_url(self):
+    def dash_url(self) -> str:
         return f"{self.base_url}/dashboard"
 
     def _get_session(self) -> EnhancedSession:
@@ -214,7 +220,7 @@ class Client:
 
     def _extract_csv(self, response: requests.Response) -> Iterable[dict]:
         if zipfile.is_zipfile(io.BytesIO(response.content)):
-            return csv.DictReader(self.unzip_csv(response.content))
+            return csv.DictReader(self.unzip(response.content))
         csv_part = response.text.split("<!DOCTYPE html>")[0]
         return csv.DictReader(io.StringIO(csv_part))
 
@@ -262,7 +268,7 @@ class Client:
         if isinstance(resp, dict):
             return SessionCounts.from_json(resp)
         logger.critical(resp)
-        raise GingrClientError("get_seciton_types() resp not json")
+        raise GingrClientError("get_section_counts() resp not json")
 
     @cachedmethod(operator.attrgetter("reservation_types"))
     def get_reservation_types(self) -> Iterable[ReservationType]:
@@ -308,7 +314,9 @@ class Client:
             logger.exception(exc)
             raise GingrClientError("get_reservations()") from exc
 
-    def get_icons(self, animal_ids: list[int], owner_ids: list[int] | None = None):
+    def get_icons(
+        self, animal_ids: Iterable[int], owner_ids: Iterable[int] | None = None
+    ) -> Icons:
         """Return all icons for the animals and owners.
 
         owner_ids is optional
@@ -339,25 +347,28 @@ class Client:
             logger.exception(exc)
             raise GingrClientError("get_animal()") from exc
 
-    def get_animal_report_cards(self, animal_id: int) -> AnimalReportCards:
-        """Return the ids of all report cards for the animal."""
+    def get_animal_reservation_ids(self, animal_id: int) -> AnimalReservationIds:
+        """Return ids of all future, complete, cancelled, wait listed reservations."""
         url = f"{self.base_url}/api/v1/reservation_stats"
         params = {"type": "animal", "id": animal_id, "key": self.apikey}
         resp = self.get(url, params)
         try:
-            return AnimalReportCards.from_json(animal_id, resp)  # type: ignore
+            return AnimalReservationIds.from_json(animal_id, resp)  # type: ignore
         except Exception as exc:
             logger.critical(resp)
             logger.exception(exc)
             raise GingrClientError("get_animal()") from exc
 
-    def get_report_card_images(self, report_card_id: int) -> list[str]:
+    def get_report_card_images(self, report_card_id: int) -> Iterable[str]:
         """Return image urls associated with the report card."""
         url = f"{self.base_url}/front_end_v1/get_report_card_details_v1"
         data = {"report_card_id": report_card_id}
         resp = self.post(url, data)
         try:
-            return [file["file_location"] for file in resp["data"]["report_card"]["files"]]  # type: ignore
+            return [
+                file["file_location"]  # type: ignore[index]
+                for file in resp["data"]["report_card"]["files"]  # type: ignore[index]
+            ]
         except Exception as exc:
             logger.critical(resp)
             logger.exception(exc)
@@ -376,11 +387,11 @@ class Client:
         }
         resp = self.post(url, data)
         try:
-            return [CustomerSpend.from_csv(row) for row in resp]
+            return [CustomerSpend.from_csv(row) for row in resp]  # type: ignore
         except Exception as exc:
             raise GingrClientError("get_customer_spend_by_date_range()") from exc
 
-    def get_unsent_report_cards(self) -> list[UnsentReportCard]:
+    def get_unsent_report_cards(self) -> Iterable[UnsentReportCard]:
         """Return unsent report cards and number of photos in each one."""
         url = f"{self.base_url}/report_cards"
         resp = self.get(url)
@@ -399,9 +410,9 @@ class Client:
             ret.append(UnsentReportCard(a_id, report_card_id, num_files))
         return ret
 
-    def get_untagged_images(self) -> list[UntaggedImage]:
+    def get_untagged_images(self) -> Iterable[UntaggedImage]:
         """Return all images currently in bulk_upload."""
-        ret = []
+        ret: list[UntaggedImage] = []
 
         url = f"{self.base_url}/report_cards/bulk_upload"
         resp = self.get(url)
@@ -422,8 +433,8 @@ class Client:
                 continue
         return ret
 
-    def upload_image(self, image: str | Path):
-        """Upload an image to be tagged."""
+    def upload_image(self, image: str | Path) -> None:
+        """Upload an image to the bulk_upload area."""
         raise NotImplementedError
         # url = "https://us-central1-gingr-file-uploads-198700.cloudfunctions.net/sign-upload-url"
         # file_name = image if isinstance(image, str) else image.name
@@ -443,18 +454,19 @@ class Client:
         #         print(resp.headers)
         #         print(resp.content)
 
-    def clear_bulk_upload(self):
+    def clear_bulk_upload(self) -> None:
         """Delete all images in the bulk_upload section."""
         for image in self.get_untagged_images():
-            self.delete_file(image.file_id)
+            self.delete_image(image.file_id)
 
-    def tag_images(self, tags: list):
+    def tag_images(self, tags: Iterable) -> None:
         """Assign tags to images in bulk_upload."""
         raise NotImplementedError
         # url = f"{self.base_url}/report_cards/bulk_update"
         # This is not hard to implement just haven't done it yet
+        # tags should be just
 
-    def delete_image(self, file_id: int):
+    def delete_image(self, file_id: int) -> None:
         """Delete an image from the report cards.
 
         I assume this removes the image from all report cards referencing it.
@@ -465,7 +477,7 @@ class Client:
             logger.info(f"Deleted file {file_id}")
 
     @staticmethod
-    def _log_bad_request(response: requests.Response):
+    def _log_bad_request(response: requests.Response) -> None:
         logger.warning(f"Response: {response.status_code} {response.reason}")
         logger.warning(f"Headers: {response.headers}")
 
@@ -478,7 +490,6 @@ class Client:
                 if apikey:
                     return line.split(" = ")[-1].replace("'", "").strip().strip(";")
         raise GingrClientError("Could not get apikey")
-
 
     @staticmethod
     def unzip(content: bytes) -> Iterable[str]:

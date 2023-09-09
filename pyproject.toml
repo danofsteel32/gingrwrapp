@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gingrwrapp"
-version = "0.0.2"
+version = "0.0.3"
 description = "Unofficial client library for gingrapp.com"
 readme = "README.md"
 authors = [{name = "Dan Davis", email = "dan@dandavis.dev"}]
@@ -31,7 +31,9 @@ requires-python = ">=3.10"
 dev = [
     "black",
     "ipython",
+    "mypy",
     "ruff",
+    "types-cachetools",
     "types-requests",
 ]
 doc = [
@@ -69,3 +71,7 @@ reportMissingTypeStubs = true
 
 pythonVersion = "3.11"
 pythonPlatform = "Linux"
+
+[tool.mypy]
+python_version = "3.11"
+disallow_untyped_defs = true
