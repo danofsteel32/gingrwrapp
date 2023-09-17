@@ -8,7 +8,23 @@ from datetime import date as Date
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Generator
+
+
+def clean_not_applicable(x: str) -> str:
+    """Stupid that they didn't have it be an empty string or null."""
+    case = {
+        "<p>n/a</p>",
+        "<p>na</p>",
+        "<p>no</p>",
+        "<p>none</p>",
+        "<p>no&nbsp;</p>",
+        "<p>no!&nbsp;</p>",
+        "na",
+    }
+    if x.lower().strip() in case:
+        return ""
+    return x
 
 
 def dt_helper(x: str) -> datetime | None:
@@ -92,12 +108,22 @@ class SessionCounts:
 @dataclass
 class ReservationType:
     id: int
-    type: str
-    description: str
+    name: str
+    color: str
+    enabled: bool
+    single_day: bool
+    convert_to: int | None
 
     @classmethod
     def from_json(cls, resp: dict) -> "ReservationType":
-        return cls(int(resp["id"]), resp["type"], resp["description"])
+        return cls(
+            int(resp["id"]),
+            resp["name"].strip(),
+            resp["color"],
+            bool_helper(resp["status"]),
+            bool_helper(resp["single_day"]),
+            int_or_none(resp["convert_to"]),
+        )
 
 
 @dataclass
@@ -280,15 +306,24 @@ class AnimalReservationIds:
 class Animal:
     id: int
     name: str
+    last_name: str
     gender: GenderType
     medicines: str
     allergies: str
     notes: str
+    grooming_notes: str
     breed_name: str
     breed_id: int
     banned: bool
     image_url: str
     home_location: int
+    profile_creation: Date
+    species_id: int
+    species_name: str
+    emergency_contact_name: str
+    emergency_contact_phone: str
+    vet_name: str
+    vet_phone: str
 
     @classmethod
     def from_html(cls, html: str) -> "Animal":
@@ -299,15 +334,24 @@ class Animal:
         return cls(
             id=1,
             name=info["animal_name"],
+            last_name=info["o_last"],
             gender=gender,
             medicines=info["medicines"],
-            allergies=info["allergies"],
+            allergies=clean_not_applicable(info["allergies"]),
             notes=info["a_notes"],
+            grooming_notes=info["grooming_notes"],
             breed_name=info["breed_name"],
             breed_id=int(info["breed_id"]),
             banned=bool_helper(info["banned"]),
             image_url=info["image"],
             home_location=int(info["home_location"]),
+            profile_creation=dt_helper_raise(info["animal_created_at"]).date(),
+            species_id=int(info["species_id"]),
+            species_name=info["species_name"],
+            emergency_contact_name=info["emergency_contact_name"],
+            emergency_contact_phone=info["emergency_contact_phone"],
+            vet_name=info["vet_name"],
+            vet_phone=info["vet_phone"],
         )
 
     @staticmethod
@@ -317,107 +361,149 @@ class Animal:
                 animal = re.search("var animal = ", line)
                 if animal:
                     animal_json = json.loads(line.replace(" var animal = ", "")[:-2])
+                    # print(json.dumps(animal_json, indent=2))
                     return animal_json
         raise ValueError("Could not get animal info payload")
 
 
 @dataclass(frozen=True, slots=True)
-class AnimalIcon:
-    icon_template_id: int | None
-    icon_template_group_id: int | None
+class CustomAnimalIcon:
+    """Extends from a template by adding animal specific fields."""
+
+    icon_id: int
+    animal_id: int
     content: str | None
     comment: str | None
-    name: str | None
-    title: str
-    type: str  # custom || system
-    fontawesome_icon_id: int
-    capacity: int | None
-    fontawesome_class: str
 
     @classmethod
     def from_json(cls, resp: dict) -> "AnimalIcon":
         return cls(
-            icon_template_id=int_or_none(resp.get("color_label_template_id")),
-            icon_template_group_id=int_or_none(
-                resp.get("color_label_template_group_id")
-            ),
+            icon_id=int(resp.get("color_label_template_id")),  # type: ignore[arg-type]
+            animal_id=int(resp.get("animal_id")),  # type: ignore[arg-type]
             content=resp.get("content"),
             comment=resp.get("comment"),
-            name=resp.get("name"),
-            title=resp["title"],
-            type=resp["type"],
-            fontawesome_icon_id=int(resp["fontawesome_icon_id"]),
-            capacity=int_or_none(resp.get("capacity")),
-            fontawesome_class=resp["class"],
         )
 
 
-@dataclass
-class AnimalIconTemplate:
+@dataclass(frozen=True, slots=True)
+class SystemAnimalIcon:
+    """Built into gingr and does not have a corresponding template."""
+
+    icon_id: int
+    animal_id: int
+    enabled: bool
+    color: str
+    secondary_color: str | None
+    title: str
+    fontawesome_icon_id: int
+    fontawesome_class: str
+    comment: str | None
+    content: str | None
+
+    @classmethod
+    def from_json(cls, resp: dict, animal_id: int) -> "AnimalIcon":
+        return cls(
+            icon_id=int(resp["id"]),
+            animal_id=animal_id,
+            enabled=bool_helper(resp["status"]),
+            color=resp["color"],
+            secondary_color=resp["secondary_color"],
+            title=resp["title"],
+            fontawesome_icon_id=int(resp["fontawesome_icon_id"]),
+            fontawesome_class=resp["class"],
+            comment=resp.get("comment"),
+            content=resp.get("content"),
+        )
+
+    def to_template(self) -> "Icon":
+        return Icon(
+            id=self.icon_id,
+            fontawesome_icon_id=self.fontawesome_icon_id,
+            fontawesome_class=self.fontawesome_class,
+            title=self.title,
+            color=self.color,
+            capacity=None,
+            group_name=None,
+            secondary_color=self.secondary_color,
+            type="system",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Icon:
+    """Template that all instances of the icon build off.
+
+    icon_templates->animal_templates {
+        "id": "20",
+        "fontawesome_icon_id": "100",
+        "class": "fa fa-asterisk",
+        "title": "Animal Notes",
+        "color": "#171515",
+        "capacity": null,
+        "group_name": null,
+    }
+    """
+
     id: int
     fontawesome_icon_id: int
-    color_label_template_group_id: int | None
+    fontawesome_class: str
     title: str
     color: str
     capacity: int | None
     group_name: str | None
-    checkout_alert: bool
-    checkin_alert: bool
-    reservation_creation_alert: bool
-    reservation_details_alert: bool
-    owner_details_alert: bool
-    animal_details_alert: bool
-    fontawesome_class: str
-    location_ids: list[int] | None
+    secondary_color: str | None = None
+    type: str = "custom"
 
     @classmethod
-    def from_json(cls, resp: dict) -> "AnimalIconTemplate":
-        if resp.get("location_ids"):
-            location_ids = [int(x) for x in resp.get("location_ids", "").split(",")]
-        else:
-            location_ids = None
+    def from_json(cls, resp: dict) -> "Icon":
         return cls(
             id=int(resp["id"]),
             fontawesome_icon_id=int(resp["fontawesome_icon_id"]),
-            color_label_template_group_id=int_or_none(
-                resp["color_label_template_group_id"]
-            ),
+            fontawesome_class=resp["class"],
             title=resp["title"],
             color=resp["color"],
-            capacity=int_or_none(resp["capacity"]),
-            group_name=resp["group_name"],
-            checkout_alert=bool_helper(resp["checkout_alert"]),
-            checkin_alert=bool_helper(resp["checkin_alert"]),
-            reservation_creation_alert=bool_helper(resp["reservation_creation_alert"]),
-            reservation_details_alert=bool_helper(resp["reservation_details_alert"]),
-            owner_details_alert=bool_helper(resp["owner_details_alert"]),
-            animal_details_alert=bool_helper(resp["animal_details_alert"]),
-            fontawesome_class=resp["class"],
-            location_ids=location_ids,
+            capacity=int_or_none(resp.get("capacity")),
+            group_name=resp.get("group_name"),
         )
+
+
+AnimalIcon = CustomAnimalIcon | SystemAnimalIcon  # Type alias
 
 
 @dataclass
 class Icons:
-    """We don't care about the owners right now but they could be in there."""
+    """Provides both icon templates and animal specific instances of the templates."""
 
+    templates: dict[int, Icon]  # icon_id: icon
     animal_icons: dict[int, list[AnimalIcon]]  # a_id: icons
 
     @classmethod
     def from_json(cls, resp: dict) -> "Icons":
-        animal_icons = {}
-        animals = resp["data"]["animals"]
-        for a_id in animals:
-            icons = [AnimalIcon.from_json(icon) for icon in animals[a_id]["icons"]]
-            animal_icons[int(a_id)] = icons
-        return cls(animal_icons)
+        templates = {}
+        for template in resp["icon_templates"]["animal_templates"]:
+            icon_t = Icon.from_json(template)
+            templates[icon_t.id] = icon_t
 
-    def unique_icons(self) -> set[AnimalIcon]:
-        icons = set()
+        animal_icons: dict[int, list[AnimalIcon]] = {}
+        animals = resp["data"]["animals"]
+        for a_id_str in animals:
+            a_id = int(a_id_str)
+            animal_icons[a_id] = []
+            for icon in animals[a_id_str]["icons"]:
+                if icon["type"] == "system":
+                    system_icon = SystemAnimalIcon.from_json(icon, a_id)
+                    if system_icon.icon_id not in templates:
+                        templates[system_icon.icon_id] = system_icon.to_template()  # type: ignore[union-attr]  # noqa: E501
+                    animal_icons[a_id].append(system_icon)
+                else:
+                    custom_icon = CustomAnimalIcon.from_json(icon)
+                    animal_icons[a_id].append(custom_icon)
+        return cls(templates, animal_icons)
+
+    def __iter__(self) -> Generator[tuple[Icon, AnimalIcon], None, None]:
         for a_id in self.animal_icons:
-            for i in self.animal_icons[a_id]:
-                icons.add(i)
-        return icons
+            for animal_icon in self.animal_icons[a_id]:
+                yield self.templates[animal_icon.icon_id], animal_icon
 
 
 @dataclass

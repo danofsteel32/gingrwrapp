@@ -1,7 +1,7 @@
 # gingrwrapp
 
 A python client library for [gingr](gingrapp.com) that automatically handles auth,
-session cookies, ratelimiting, timeouts when making requests to gingr.
+session cookies, ratelimiting and timeouts when making requests to gingr.
 
 ### Usage
 
@@ -29,13 +29,18 @@ All dev tasks can be accomplished with the `run.sh` script.
 ./run.sh install dev,doc          # optional dependencies
 ./run.sh tests                    # run full set of client tests
 ./run.sh test get_reservations    # run test for single func/method
-./run.sh lint                     # ruff
+./run.sh lint                     # ruff and mypy
 ./run.sh clean                    # rm files not source controlled
 ./run.sh build                    # whl and sdist
-./run.sh docs                     # local pdoc
+./run.sh docs                     # local pdoc server
 ./run.sh help                     # print this helpful message
 ```
 
 ## TODO
+
 - Figure out google url signing for `Client.upload_image`
 - Figure out what format postdata needs to be in for `Client.tag_images`
+- Docs need a lot of work
+    + Especially some of the response_objects like `Icons`
+- Better Exceptions
+    + `BadLoginCredentials`, `Timeout`, `UnexpectedResponse`

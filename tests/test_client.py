@@ -10,6 +10,7 @@ from gingrwrapp.response_objects import (
     Animal,
     AnimalReservationIds,
     CustomerSpend,
+    Icon,
     Icons,
     Reservation,
     ReservationType,
@@ -41,6 +42,9 @@ class ClientTestCase(unittest.TestCase):
 
     def test_get_icons(self):
         icons = client.get_icons([1, 2, 3], [1, 2, 3])
+        for i, ai in icons:
+            self.assertIsInstance(i, Icon)
+            self.assertIsInstance(ai.animal_id, int)
         self.assertIsInstance(icons, Icons)
 
     def test_get_animal(self):

@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gingrwrapp"
-version = "0.0.3"
+version = "0.0.4"
 description = "Unofficial client library for gingrapp.com"
 readme = "README.md"
 authors = [{name = "Dan Davis", email = "dan@dandavis.dev"}]
@@ -30,6 +30,7 @@ requires-python = ">=3.10"
 [project.optional-dependencies]
 dev = [
     "black",
+    "build",
     "ipython",
     "mypy",
     "ruff",

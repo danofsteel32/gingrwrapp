@@ -68,11 +68,6 @@ build() {
     python -m build
 }
 
-publish() {
-    lint && tests && clean && build
-    python -m twine upload dist/*
-}
-
 clean() {
     rm -rf dist/
     rm -rf .eggs/
@@ -108,13 +103,13 @@ docs() {
 
 help() {
     echo
-    echo "./run.sh build                    # whl and sdist"
+    echo "./run.sh build                    # whl and sdist packages"
     echo "./run.sh docs                     # local pdoc server"
     echo "./run.sh install                  # configure venv and install deps"
     echo "./run.sh install dev,doc          # optional dependencies"
     echo "./run.sh tests                    # run full set of client tests"
     echo "./run.sh test get_reservations    # run test for single func/method"
-    echo "./run.sh lint                     # ruff"
+    echo "./run.sh lint                     # ruff and mypy"
     echo "./run.sh clean                    # rm files not source controlled"
     echo "./run.sh help                     # print this helpful message"
     echo

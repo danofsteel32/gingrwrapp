@@ -290,7 +290,10 @@ class Client:
             raise GingrClientError("get_reservation_types()") from exc
 
     def get_reservations(
-        self, date: Date | None = None, days_ahead: int = 1
+        self,
+        reservation_types: Iterable[ReservationType] | None = None,
+        date: Date | None = None,
+        days_ahead: int = 1,
     ) -> Iterable[Reservation]:
         """Return all reservations from the date plus days_ahead.
 
@@ -298,10 +301,13 @@ class Client:
         """
         date_from = date if date else Date.today()
         date_to = date_from + timedelta(days=days_ahead)
+        reservation_types = (
+            reservation_types if reservation_types else self.get_reservation_types()
+        )
         data = {
             "date_from": date_from.strftime("%m/%d/%Y"),
             "date_to": date_to.strftime("%m/%d/%Y"),
-            "type_ids[]": [r.id for r in self.get_reservation_types()],
+            "type_ids[]": [r.id for r in reservation_types],
             "cancelled": "true",
             "csv": "true",
         }
