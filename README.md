@@ -1,6 +1,6 @@
 # gingrwrapp
 
-A python client library for [gingr](gingrapp.com) that automatically handles auth,
+A python client library for [gingr](https://gingrapp.com) that automatically handles auth,
 session cookies, ratelimiting and timeouts when making requests to gingr.
 
 ### Usage
